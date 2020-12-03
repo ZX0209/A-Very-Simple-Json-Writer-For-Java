@@ -1,6 +1,7 @@
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -11,13 +12,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Json {
-	public static String toJsonString(Object object) {
+	public static String go(Object object) {
 		if(null==object)return"null";
-		Field[] fields = object.getClass().getDeclaredFields();
-		if(fields==null||fields.length==0)return"{}";
+		ArrayList<Field> fields = getAllFields(object.getClass());
+		if(null==fields||fields.size()==0)return"{}";
 		StringBuilder sb=new StringBuilder("{");
-		for (int i = 0; i < fields.length; i++) {
-			Field field = fields[i];
+		for (int i = 0; i < fields.size(); i++) {
+			Field field = fields.get(i);
 			field.setAccessible(true);
 			Class<?> type = field.getType();
 			sb.append("\"").append(type.getCanonicalName()).append(":").append(field.getName()).append("\":");
@@ -30,8 +31,8 @@ public class Json {
 					numberToJsonString((Number)value,sb);
 				}else if (Boolean.class==type||boolean.class==type) {
 					booleanToJsonString((Boolean)value,sb);
-				}else if (Object[].class.isAssignableFrom(type)) {
-					arrayToJsonString((Object[])value,sb);
+				}else if (type.isArray()) {
+					arrayToJsonString(value,sb);
 				}else if (Iterable.class.isAssignableFrom(type)) {
 					iterableToJsonString((Iterable<?>)value,sb);
 				}else if (Map.class.isAssignableFrom(type)) {
@@ -70,17 +71,19 @@ public class Json {
 		return sb.append("true");
 	}
 	
-	private static StringBuilder arrayToJsonString(Object[] array,StringBuilder sb) {
+	private static StringBuilder arrayToJsonString(Object array,StringBuilder sb) {
 		if(null==array)return sb.append("[]");
 		int length=Array.getLength(array);
 		if(length==0)return sb.append("[]");
 		sb.append("[");
+		Class<?> type = array.getClass();
 		if(array instanceof String[]){
 			for (int i = 0; i < length; i++) {
 				stringToJsonString((String)Array.get(array, i),sb);
 				sb.append(",");
 			}
-		}else if (array instanceof Number[]) {
+		}else if (array instanceof Number[]||type==byte.class||type==short.class||type==char.class||
+		type==int.class||type==float.class||type==double.class||type==long.class) {
 			for (int i = 0; i < length; i++) {
 				numberToJsonString((Number)Array.get(array, i),sb);
 				sb.append(",");
@@ -125,14 +128,15 @@ public class Json {
 	}
 	
 	private static StringBuilder otherObjectToJsonString(Object object,StringBuilder sb) {
-		if(null==object)return sb.append("{}");
+		if(null==object)return sb.append("null");
 		if(object instanceof String)return stringToJsonString((String)object,sb);
 		if(object instanceof Number)return numberToJsonString((Number)object,sb);
-		if(object instanceof Object[])return arrayToJsonString((Object[])object,sb);
+		if(object instanceof Boolean)return booleanToJsonString((Boolean)object,sb);
+		if(object.getClass().isArray())return arrayToJsonString(object,sb);
 		if(object instanceof Iterable)return iterableToJsonString((Iterable<?>)object,sb);
 		if(object instanceof Map)return mapToJsonString((Map<?,?>)object,sb);
-		Field[] fields = object.getClass().getDeclaredFields();
-		if(null==fields||fields.length==0)return sb.append("{}");
+		ArrayList<Field> fields = getAllFields(object.getClass());
+		if(null==fields||fields.size()==0)return sb.append("{}");
 		sb.append("{");
 		for (Field field : fields) {
 			field.setAccessible(true);
@@ -147,8 +151,8 @@ public class Json {
 					numberToJsonString((Number)value,sb);
 				}else if (Boolean.class==type||boolean.class==type) {
 					booleanToJsonString((Boolean)value,sb);
-				}else if (Object[].class.isAssignableFrom(type)) {
-					arrayToJsonString((Object[])value,sb);
+				}else if (type.isArray()) {
+					arrayToJsonString(value,sb);
 				}else if (Iterable.class.isAssignableFrom(type)) {
 					iterableToJsonString((Iterable<?>)value,sb);
 				}else if (Map.class.isAssignableFrom(type)) {
@@ -165,13 +169,40 @@ public class Json {
 		return sb.append("}");
 	}
 	
+	public static ArrayList<Field> getAllFields(Class<?> klass) {
+		ArrayList<Field[]> list = new ArrayList<>();
+		while (null!=klass) {
+			list.add(klass.getDeclaredFields());
+			klass=klass.getSuperclass();
+		}
+		ArrayList<Field> fieldList = new ArrayList<>();
+		for (Field[] fields : list) {
+			for (Field field : fields) {
+				fieldList.add(field);
+			}
+		}
+		return fieldList;
+	}
+	
 	public static void main(String[] args) {
-		System.out.println(toJsonString(new ComplexObject()));
+		System.out.println(go(new ComplexObject()));
 	}
 }
 
+class Fa{
+	private String string;
+	private Integer integer;
+	private Double doub;
+	private Object[] objects;
+	public Fa(){
+		string="Fa";
+		integer=100;
+		doub=0.000001;
+		objects=new Object[]{"hello",123,0.555,true,null,new Object[]{"123",0.001,false,new String[]{},},new Integer[]{},new double[]{.001,.23,55.66}};
+	}
+}
 
-class ComplexObject{
+class ComplexObject extends Fa{
 	private Simple simple;
 	private Map<?,?> map;
 	private List<?> list;
