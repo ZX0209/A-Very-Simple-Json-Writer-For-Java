@@ -65,7 +65,7 @@ public class Json {
 			   sb.append(number.intValue());
 	}
 	
-	public static StringBuilder booleanToJsonString(Boolean bool,StringBuilder sb) {
+	private static StringBuilder booleanToJsonString(Boolean bool,StringBuilder sb) {
 		if(null==bool||!bool)return sb.append("false");
 		return sb.append("true");
 	}
